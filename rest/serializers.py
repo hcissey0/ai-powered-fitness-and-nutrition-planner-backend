@@ -1,6 +1,40 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-from rest.models import Profile, User # Assuming Profile is defined in rest/models.py
+from rest.models import Profile # Assuming Profile is defined in rest/models.py
+
+
+# serializers.py
+from django.contrib.auth import authenticate
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class EmailAuthTokenSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(trim_whitespace=False)
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                msg = _('A user with that email does not exist.')
+                raise serializers.ValidationError(msg, code='authorization')
+            # user = authenticate(request=self.context.get('request'), email=email, password=password)
+            # if not user:
+            #     msg = _('Unable to log in with provided credentials.')
+            #     raise serializers.ValidationError(msg, code='authorization')
+        else:
+            msg = _('Must include "email" and "password".')
+            raise serializers.ValidationError(msg, code='authorization')
+
+        attrs['user'] = user
+        return attrs
+
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -43,5 +77,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['bmi', 'id']  # Assuming bmi is calculated and not set dir
         depth = 1  # Adjust depth as needed for nested serialization
+
+
 
 

@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-from rest_framework import serializers, viewsets, routers
+from rest_framework import routers
 from rest import views as rest_views
 
 router = routers.DefaultRouter() 

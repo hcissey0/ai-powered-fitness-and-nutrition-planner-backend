@@ -4,10 +4,42 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 
-from .serializers import UserSerializer, ProfileSerializer
+from .serializers import UserSerializer, ProfileSerializer, EmailAuthTokenSerializer
 from .models import Profile
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+
+
+# views.py
+
+
+
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+
+
+class AuthToken(ObtainAuthToken):
+    """
+    Custom auth view that authenticates with email and returns token + user.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = EmailAuthTokenSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'token': token.key,
+            'user': UserSerializer(user).data
+        })
+
+
+
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -38,14 +70,21 @@ class ProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-class AuthToken(ObtainAuthToken):
-    """
-    Custom authentication token view to return user data along with the token.
-    """
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data,
-                                           context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key, 'user': UserSerializer(user).data})
+# class AuthToken(ObtainAuthToken):
+#     """
+#     Custom authentication token view to return user data along with the token.
+#     """
+#     authentication_classes = []
+#     permission_classes = [permissions.AllowAny]
+#     serializer_class = UserSerializer
+#     def post(self, request, *args, **kwargs):
+#         """"Handles POST requests to authenticate a user and return a token.
+#         """
+#         print(request.data)
+#         serializer = self.serializer_class(data=request.data,
+#                                            context={'request': request})
+        
+#         serializer.is_valid(raise_exception=True)
+#         user = serializer.validated_data['user']
+#         token, created = Token.objects.get_or_create(user=user)
+#         return Response({'token': token.key, 'user': UserSerializer(user).data})
