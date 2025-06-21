@@ -1,6 +1,6 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-from rest.models import Profile # Assuming Profile is defined in rest/models.py
+from rest.models import FitnessPlan, Profile # Assuming Profile is defined in rest/models.py
 
 
 # serializers.py
@@ -45,6 +45,7 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
         depth = 1  # Adjust depth as needed for nested serialization
         read_only_fields = ['id', 'date_joined', 'is_active']
+        
         ordering = ['date_joined']
         
         
@@ -53,6 +54,10 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)  # Assuming a OneToOne relationship with User
     # user = serializers.PrimaryKeyRelatedField(read_only=True)  # Assuming a OneToOne relationship with User
+
+    def create(self, validated_data):
+        profile = Profile.objects.create( **validated_data)
+        return profile
 
     def update(self, instance, validated_data):
         instance.current_weight = validated_data.get('current_weight', instance.current_weight)
@@ -78,6 +83,13 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['bmi', 'id']  # Assuming bmi is calculated and not set dir
         depth = 1  # Adjust depth as needed for nested serialization
 
+class FitnessPlanSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)
 
+    class Meta:
+        model = FitnessPlan  # Assuming you have a FitnessPlan model
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        depth = 5  # Adjust depth as needed for nested serialization
 
 
