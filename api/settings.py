@@ -65,6 +65,16 @@ REST_FRAMEWORK = {
     # 'PAGE_SIZE': 500,
 }
 
+# settings.py
+
+from django.contrib.sites.shortcuts import get_current_site
+
+def safe_get_current_site(request):
+    try:
+        return get_current_site(request)
+    except Site.DoesNotExist:
+        from django.contrib.sites.models import Site
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -110,12 +120,16 @@ WSGI_APPLICATION = 'api.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
-        'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
-        'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
-        'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
-        'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
-        'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
+        # for sqlite
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',  # Path to your SQLite database file
+        # for postgresql
+        # 'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
+        # 'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
+        # 'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
+        # 'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
+        # 'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
+        # 'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
     }
 }
 

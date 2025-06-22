@@ -22,10 +22,11 @@ from rest import views as rest_views
 
 router = routers.DefaultRouter() 
 router.register(r'users', rest_views.UserViewSet)
-router.register(r'profiles', rest_views.ProfileViewSet)  # Assuming you have a ProfileViewSet
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),  # Include the router URLs for User and Group viewsets
-    path('api/auth/', rest_views.AuthToken.as_view()),  # Include DRF's default authentication URLs
+    path('api/auth/login/', rest_views.LoginAuthView.as_view()),
+    path('api/auth/signup/', rest_views.SignUpAuthView.as_view()),
 ]

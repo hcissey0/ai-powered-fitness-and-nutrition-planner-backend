@@ -1,6 +1,6 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-from rest.models import FitnessPlan, Profile # Assuming Profile is defined in rest/models.py
+from rest.models import Exercise, FitnessPlan, Meal, NutritionDay, Profile, WorkoutDay # Assuming Profile is defined in rest/models.py
 
 
 # serializers.py
@@ -81,15 +81,46 @@ class ProfileSerializer(serializers.ModelSerializer):
         # fields = ['user', 'current_weight', 'height', 'bmi', 'age', 'weight', 'activity_level', 'goal']
         fields = '__all__'
         read_only_fields = ['bmi', 'id']  # Assuming bmi is calculated and not set dir
-        depth = 1  # Adjust depth as needed for nested serialization
+        # depth = 1  # Adjust depth as needed for nested serialization
+
+
+class ExerciseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exercise
+        fields = '__all__'
+
+
+class WorkoutDaySerializer(serializers.ModelSerializer):
+    exercises = ExerciseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = WorkoutDay
+        fields = '__all__'
+
+
+class MealSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Meal
+        fields = '__all__'
+
+
+class NutritionDaySerializer(serializers.ModelSerializer):
+    meals = MealSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = NutritionDay
+        fields = '__all__'
+
 
 class FitnessPlanSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
+    workout_days = WorkoutDaySerializer(many=True, read_only=True)
+    nutrition_days = NutritionDaySerializer(many=True, read_only=True)
 
     class Meta:
-        model = FitnessPlan  # Assuming you have a FitnessPlan model
+        model = FitnessPlan
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
-        depth = 5  # Adjust depth as needed for nested serialization
+
 
 

@@ -60,6 +60,8 @@ class Profile(models.Model):
     height = models.PositiveIntegerField(null=True, blank=True, help_text="Height in centimeters (cm)")
     age = models.PositiveIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], null=True, blank=True) # Added gender for better calorie calculation
+    # storing main image text in the db
+    image = models.TextField(blank=True, null=True, help_text="User's profile image.")
     activity_level = models.CharField(
         max_length=50,
         choices=[
@@ -102,7 +104,7 @@ class FitnessPlan(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='fitness_plans')
     start_date = models.DateField()
     end_date = models.DateField()
-    goal_at_creation = models.CharField(max_length=50, help_text="The user's goal when this plan was created.")
+    goal_at_creation = models.CharField(null=True, blank=True, max_length=50, help_text="The user's goal when this plan was created.")
     is_active = models.BooleanField(default=True)
 
     # For debugging and fine-tuning your AI
@@ -173,7 +175,7 @@ class Meal(models.Model):
     protein_grams = models.FloatField()
     carbs_grams = models.FloatField()
     fats_grams = models.FloatField()
-    portion_size = models.CharField(max_length=100, blank=True, help_text="e.g., '1 medium ladle', '2 pieces of chicken'")
+    portion_size = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., '1 medium ladle', '2 pieces of chicken'")
     
     def __str__(self):
         return f"{self.get_meal_type_display()}: {self.description}"
