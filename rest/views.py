@@ -132,9 +132,25 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         if request.method == 'POST':
             # Handle profile creation or update
-            serializer = ProfileSerializer(data=request.data, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            profile = serializer.save(user=request.user)
+            print('request.data:', request.data)
+            if hasattr(request.user, 'profile'):
+                return Response({"message": "Profile already exists."}, status=400)
+            if not request.data.get('age'):
+                return Response({"message": "Age is required."}, status=400)
+            if not request.data.get('height'):
+                return Response({"message": "Height is required."}, status=400)
+            if not request.data.get('current_weight'):
+                return Response({"message": "Current weight is required."}, status=400)
+            if not request.data.get('activity_level'):
+                return Response({"message": "Activity level is required."}, status=400)
+            if not request.data.get('goal'):
+                return Response({"message": "Goal is required."}, status=400)
+            # Create a new profile
+            profile = Profile.objects.create(**request.data, user=request.user)
+            profile.save()
+            # serializer = ProfileSerializer(data=request.data, context={'request': request})
+            # serializer.is_valid(raise_exception=True)
+            # profile = serializer.save(user=request.user)
             return Response(ProfileSerializer(profile).data, status=201)
         elif request.method == 'GET':
             # Handle profile retrieval

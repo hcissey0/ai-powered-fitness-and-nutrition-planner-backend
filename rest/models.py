@@ -82,7 +82,7 @@ class Profile(models.Model):
         null=True, blank=True
     )
     # Optional: User can specify dietary preferences or restrictions
-    dietary_preferences = models.TextField(blank=True, help_text="e.g., 'no red meat', 'prefers fish', 'allergic to groundnuts'")
+    dietary_preferences = models.TextField(blank=True, null=True, help_text="e.g., 'no red meat', 'prefers fish', 'allergic to groundnuts'")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
