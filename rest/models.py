@@ -1,55 +1,10 @@
+# rest/models.py
 from django.db import models
 from rest_framework.authtoken.models import Token
 from django.conf import settings
 
 from django.contrib.auth.models import User
 from django.dispatch import receiver
-
-# # Create your models here.
-# class Profile(models.Model):
-#     user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='profile', on_delete=models.CASCADE)
-#     current_weight = models.FloatField(null=True, blank=True)  # Weight in kg
-#     height = models.PositiveIntegerField(null=True, blank=True)  # Height in cm
-
-#     bmi = models.FloatField(null=True, blank=True)  # Body Mass Index
-
-
-#     age = models.PositiveIntegerField(null=True, blank=True)
-#     weight = models.PositiveIntegerField(null=True, blank=True)  # Weight in kg
-#     activity_level = models.CharField(
-#         max_length=50,
-#         choices=[
-#             ('sedentary', 'Sedentary'),
-#             ('lightly_active', 'Lightly Active'),
-#             ('moderately_active', 'Moderately Active'),
-#             ('very_active', 'Very Active'),
-#         ],
-#         null=True,
-#         blank=True
-#     )
-#     goal = models.CharField(
-#         max_length=50,
-#         choices=[
-#             ('weight_loss', 'Weight Loss'),
-#             ('maintenance', 'Maintenance'),
-#             ('weight_gain', 'Weight Gain'),
-#             ('muscle_gain', 'Muscle Gain'),
-#         ],
-#         null=True,
-#         blank=True
-#     )
-
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     class Meta:
-#         verbose_name = 'Profile'
-#         verbose_name_plural = 'Profiles'
-#         ordering = ['updated_at']
-
-
-
-# your_app/models.py
 
 
 # --- Your Existing Profile Model (Slightly Refined) ---
@@ -90,7 +45,7 @@ class Profile(models.Model):
     # You can add a property for BMI if you like
     @property
     def bmi(self):
-        if self.current_weight and self.height:
+        if self.current_weight and self.height and self.height > 0:
             return round(self.current_weight / ((self.height / 100) ** 2), 2)
         return None
 
@@ -115,6 +70,9 @@ class FitnessPlan(models.Model):
 
     def __str__(self):
         return f"Plan for {self.profile.user.username} from {self.start_date} to {self.end_date}"
+    
+    class Meta:
+        ordering = ['-created_at']
 
 
 class WorkoutDay(models.Model):
@@ -131,6 +89,7 @@ class WorkoutDay(models.Model):
     
     class Meta:
         ordering = ['day_of_week']
+        unique_together = ['plan', 'day_of_week']
 
 class Exercise(models.Model):
     """ A specific exercise within a WorkoutDay. """
@@ -159,6 +118,7 @@ class NutritionDay(models.Model):
     
     class Meta:
         ordering = ['day_of_week']
+        unique_together = ['plan', 'day_of_week']
 
 class Meal(models.Model):
     """ A specific meal within a NutritionDay, focused on Ghanaian cuisine. """

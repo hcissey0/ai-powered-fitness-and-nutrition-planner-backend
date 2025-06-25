@@ -1,7 +1,9 @@
+# rest/ai_services.py (or views.py)
 from google import genai
 from google.genai import types
 from os import getenv
 from django.conf import settings
+from django.db import transaction
 from .models import Profile, FitnessPlan, WorkoutDay, Exercise, NutritionDay, Meal
 from .schemas import GeneratedPlanSchema # Import your new Pydantic schema
 from datetime import date, timedelta
@@ -42,7 +44,6 @@ client = genai.Client(api_key=getenv('GOOGLE_AI_API_KEY')
 #     )
 # )
 
-# your_app/services.py (or views.py)
 
 
 # Configure the Gemini client
@@ -120,55 +121,60 @@ def generate_and_save_plan_for_user(user_profile: Profile):
     
     print(f"Generated plan data: {plan_data}")
     # Create the main FitnessPlan object
-    new_plan = FitnessPlan.objects.create(
-        profile=user_profile,
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=6),
-        goal_at_creation=user_profile.goal,
-        ai_prompt_text=prompt,
-        ai_response_raw=plan_data
-    )
-
-    # Create Workout Days and Exercises
-    for wd_data in plan_data['workout_days']:
-        workout_day = WorkoutDay.objects.create(
-            plan=new_plan,
-            day_of_week=wd_data['day_of_week'],
-            title=wd_data['title'],
-            description=wd_data['description'],
-            is_rest_day=wd_data['is_rest_day']
-        )
-        for ex_data in wd_data['exercises']:
-            Exercise.objects.create(
-                workout_day=workout_day,
-                name=ex_data['name'],
-                sets=ex_data['sets'],
-                reps=ex_data['reps'],
-                rest_period_seconds=ex_data['rest_period_seconds'],
-                notes=ex_data['notes']
+    try: 
+        with transaction.atomic():
+            new_plan = FitnessPlan.objects.create(
+                profile=user_profile,
+                start_date=date.today(),
+                end_date=date.today() + timedelta(days=6),
+                goal_at_creation=user_profile.goal,
+                ai_prompt_text=prompt,
+                ai_response_raw=plan_data
             )
 
-    # Create Nutrition Days and Meals
-    for nd_data in plan_data['nutrition_days']:
-        nutrition_day = NutritionDay.objects.create(
-            plan=new_plan,
-            day_of_week=nd_data['day_of_week'],
-            notes=nd_data['notes'],
-            target_calories=nd_data['target_calories'],
-            target_protein_grams=nd_data['target_protein_grams'],
-            target_carbs_grams=nd_data['target_carbs_grams'],
-            target_fats_grams=nd_data['target_fats_grams']
-        )
-        for meal_data in nd_data['meals']:
-            Meal.objects.create(
-                nutrition_day=nutrition_day,
-                meal_type=meal_data['meal_type'],
-                description=meal_data['description'],
-                calories=meal_data['calories'],
-                protein_grams=meal_data['protein_grams'],
-                carbs_grams=meal_data['carbs_grams'],
-                fats_grams=meal_data['fats_grams'],
-                portion_size=meal_data['portion_size']
-            )
-    print(f"Plan successfully generated and saved for user: {user_profile.user.username}")
-    return new_plan
+            # Create Workout Days and Exercises
+            for wd_data in plan_data['workout_days']:
+                workout_day = WorkoutDay.objects.create(
+                    plan=new_plan,
+                    day_of_week=wd_data['day_of_week'],
+                    title=wd_data['title'],
+                    description=wd_data['description'],
+                    is_rest_day=wd_data['is_rest_day']
+                )
+                for ex_data in wd_data['exercises']:
+                    Exercise.objects.create(
+                        workout_day=workout_day,
+                        name=ex_data['name'],
+                        sets=ex_data['sets'],
+                        reps=ex_data['reps'],
+                        rest_period_seconds=ex_data['rest_period_seconds'],
+                        notes=ex_data['notes']
+                    )
+
+            # Create Nutrition Days and Meals
+            for nd_data in plan_data['nutrition_days']:
+                nutrition_day = NutritionDay.objects.create(
+                    plan=new_plan,
+                    day_of_week=nd_data['day_of_week'],
+                    notes=nd_data['notes'],
+                    target_calories=nd_data['target_calories'],
+                    target_protein_grams=nd_data['target_protein_grams'],
+                    target_carbs_grams=nd_data['target_carbs_grams'],
+                    target_fats_grams=nd_data['target_fats_grams']
+                )
+                for meal_data in nd_data['meals']:
+                    Meal.objects.create(
+                        nutrition_day=nutrition_day,
+                        meal_type=meal_data['meal_type'],
+                        description=meal_data['description'],
+                        calories=meal_data['calories'],
+                        protein_grams=meal_data['protein_grams'],
+                        carbs_grams=meal_data['carbs_grams'],
+                        fats_grams=meal_data['fats_grams'],
+                        portion_size=meal_data['portion_size']
+                    )
+        print(f"Plan successfully generated and saved for user: {user_profile.user.username}")
+        return new_plan
+    except Exception as e:
+        print(f"Error saving plan to database: {e}")
+        return None

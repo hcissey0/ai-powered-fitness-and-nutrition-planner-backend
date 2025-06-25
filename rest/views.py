@@ -1,48 +1,36 @@
+# rest/views.py
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import permissions, viewsets, authentication
 from rest_framework.decorators import action, authentication_classes
 from rest_framework.response import Response
 
-from .googleai import generate_and_save_plan_for_user
+from .ai_service import generate_and_save_plan_for_user
 from .serializers import FitnessPlanSerializer, UserSerializer, ProfileSerializer, EmailAuthTokenSerializer
 from .models import Profile
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from rest_framework import status, generics # Make sure to import status
 
 
-# views.py
 
 
 
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-
-class LoginAuthView(ObtainAuthToken):
+class LoginView(generics.GenericAPIView):
     """
-    Custom auth view that authenticates with email and returns token + user.
+    Custom login view that authenticates with email and returns token + user.
     """
     authentication_classes = []
     permission_classes = [AllowAny]
     serializer_class = EmailAuthTokenSerializer
-    
 
     def post(self, request, *args, **kwargs):
         """Handles POST requests to authenticate a user and return a token.
         """
-        email = request.data.get('email', None)
-        if not email:
-            return Response({"error": "Email is required."}, status=400)
-        password = request.data.get('password', None)
-        if not password:
-            return Response({"error": "Password is required."}, status=400)
-        
-        # user = authenticate(request, email=email, password=password)
-        # if not user:
-        #     return Response({"error": "Invalid credentials."}, status=400)
-
-        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data['user']
@@ -53,10 +41,11 @@ class LoginAuthView(ObtainAuthToken):
             'user': UserSerializer(user).data
         })
 
-class SignUpAuthView(ObtainAuthToken):
+class SignUpView(generics.GenericAPIView):
     """
-    Custom auth view that allows user registration and returns token + user.
+    Custom signup view that allows user registration and returns token + user.
     """
+    queryset = User.objects.all()
     authentication_classes = []
     permission_classes = [AllowAny]
     serializer_class = UserSerializer
@@ -64,41 +53,16 @@ class SignUpAuthView(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
         """Handles POST requests to register a new user and return a token.
         """
-        print('request.data:', request.data)
-        print('request.data.get("first_name"):', request.data.get('first_name', ''))
-        first_name = request.data.get('first_name', '')
-        last_name = request.data.get('last_name', '')
-        username = request.data.get('username', None)
-        if not username:
-            username = first_name + last_name + str(User.objects.count() + 1)
-        print('username:', username)
-        email = request.data.get('email', None)
-        if not email:
-            return Response({"error": "Email is required."}, status=400)
-        print('email:', email)
-        password = request.data.get('password', None)
-        if not password:
-            return Response({"error": "Password is required."}, status=400)
-        print('password:', password)
-        emailAvail = User.objects.filter(email=request.data.get('email')).exists()
-        if emailAvail:
-            return Response({"error": "Email already exists."}, status=400)
-        print('emailAvail:', emailAvail)
-        usernameAvail = User.objects.filter(username=username).exists()
-        if usernameAvail:
-            return Response({"error": "Username already exists."}, status=400)
-        
-        user = User.objects.create(first_name=first_name, 
-                                   last_name=last_name, username=username, email=email)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
 
-        user.set_password(password)  # Hash the password
-        user.save()
+        user = serializer.save()
         token, created = Token.objects.get_or_create(user=user)
 
         return Response({
             'token': token.key,
             'user': UserSerializer(user).data
-        })
+        }, status=status.HTTP_201_CREATED)
 
 
 
@@ -108,15 +72,14 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-
-    def get_permissions(self):
-        if self.action == 'create':
-            # Allow any user to create a new user
-            return [AllowAny()]
-        return [permissions.IsAuthenticated()]
-        
-
+    def get_serializer_class(self):
+        if self.action == 'me_profile':
+            return ProfileSerializer
+        return super().get_serializer_class()
+    
+    
     @action(detail=False, methods=['get'])
     def me(self, request):
         """
@@ -125,104 +88,74 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get', 'post'], url_path='me/profile')
+
+    @action(detail=False, methods=['get', 'post', 'put', 'patch'], url_path='me/profile')
     def me_profile(self, request, pk=None):
         """
-        Returns the profile of the currently authenticated user.
+        Retrieve, create, or update the profile for the currently authenticated user.
         """
-        if request.method == 'POST':
-            # Handle profile creation or update
-            print('request.data:', request.data)
-            if hasattr(request.user, 'profile'):
-                return Response({"message": "Profile already exists."}, status=400)
-            if not request.data.get('age'):
-                return Response({"message": "Age is required."}, status=400)
-            if not request.data.get('height'):
-                return Response({"message": "Height is required."}, status=400)
-            if not request.data.get('current_weight'):
-                return Response({"message": "Current weight is required."}, status=400)
-            if not request.data.get('activity_level'):
-                return Response({"message": "Activity level is required."}, status=400)
-            if not request.data.get('goal'):
-                return Response({"message": "Goal is required."}, status=400)
-            # Create a new profile
-            profile = Profile.objects.create(**request.data, user=request.user)
-            profile.save()
-            # serializer = ProfileSerializer(data=request.data, context={'request': request})
-            # serializer.is_valid(raise_exception=True)
-            # profile = serializer.save(user=request.user)
-            return Response(ProfileSerializer(profile).data, status=201)
-        elif request.method == 'GET':
-            # Handle profile retrieval
-            if not hasattr(request.user, 'profile'):
-                return Response({"message": "Profile not found."}, status=404)
+        # Try to get the profile, handle if it doesn't exist.
+        try:
             profile = request.user.profile
+        except Profile.DoesNotExist:
+            profile = None
+
+        if request.method == 'GET':
+            if not profile:
+                return Response({"message": "Profile not found. Please create one by sending a POST request."}, status=status.HTTP_404_NOT_FOUND)
+            
             serializer = ProfileSerializer(profile)
             return Response(serializer.data)
 
-    
+        elif request.method == 'POST':
+            if profile:
+                return Response({"message": "Profile already exists. Use PUT or PATCH to update."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Use the serializer to validate and create
+            serializer = ProfileSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            # Pass the user in the .save() method, DRF handles the association
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        elif request.method in ['PUT', 'PATCH']:
+            if not profile:
+                return Response({"message": "Profile not found. Please create one first."}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Use the serializer to validate and update
+            # partial=True allows for partial updates with PATCH
+            serializer = ProfileSerializer(profile, data=request.data, partial=request.method == 'PATCH')
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
     @action(detail=False, methods=['get', 'post'], url_path='me/plans')
-    def me_plans(self, request, pk=None):
+    def me_plans(self, request):
         """
-        Placeholder for a custom action to generate a fitness plan.
+        GET: Retrieve fitness plans for the authenticated user.
+        POST: Generate a new fitness plan for the authenticated user.
         """
-        if not request.user.profile:
-            return Response({"message": "Profile not found. Please create a profile first."}, status=404)
+        try:
+            profile = request.user.profile
+        except Profile.DoesNotExist:
+            return Response({"detail": "Profile not found. Please create a profile first."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if request.method == 'GET':
+            plans = profile.fitness_plans.all()
+            serializer = FitnessPlanSerializer(plans, many=True)
+            return Response(serializer.data)
+        
         if request.method == 'POST':
-            plan = generate_and_save_plan_for_user(request.user.profile)
+            # IMPORTANT: This is a long-running task.
+            # In production, this should be offloaded to a background worker (e.g., Celery).
+            plan = generate_and_save_plan_for_user(profile)
             if plan:
-                return Response({"message": "Fitness plan generated successfully.", "plan": FitnessPlanSerializer(plan).data}, status=201)
+                serializer = FitnessPlanSerializer(plan)
+                return Response({
+                    "message": "Fitness plan generated successfully.",
+                    "plan": serializer.data
+                }, status=status.HTTP_201_CREATED)
             else:
-                return Response({"message": "Failed to generate fitness plan."}, status=500)
-        elif request.method == 'GET':
-            fitness_plans = FitnessPlanSerializer(request.user.profile.fitness_plans.all(), many=True)
-            return Response(fitness_plans.data, status=200)
-        return Response({"message": "Method not allowed."}, status=405)
-
-    # @plans.mapping.get
-    def get_plans(self, request, pk=None):
-        """
-        Returns the fitness plan for the authenticated user.
-        """
-        profile = request.user.profile
-        if not profile.fitness_plans:
-            return Response({"message": "No fitness plan found for this user."}, status=404)
-        
-        res = [FitnessPlanSerializer(plan).data for plan in profile.fitness_plans.all()]
-        # serializer = FitnessPlanSerializer(profile.fitness_plan)
-        return Response(res, status=200)
+                return Response({"detail": "Failed to generate fitness plan."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class ProfileViewSet(viewsets.ModelViewSet):
-    """
-    A viewset for viewing and editing profile instances.
-    """
-    queryset = Profile.objects.all()
-    serializer_class = ProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def create(self, request, *args, **kwargs):
-        user = request.user
-        profile = Profile.objects.create(user=user, **request.data)
-        ser_profile = self.get_serializer(profile)
-        return ser_profile
-
-
-# class AuthToken(ObtainAuthToken):
-#     """
-#     Custom authentication token view to return user data along with the token.
-#     """
-#     authentication_classes = []
-#     permission_classes = [permissions.AllowAny]
-#     serializer_class = UserSerializer
-#     def post(self, request, *args, **kwargs):
-#         """"Handles POST requests to authenticate a user and return a token.
-#         """
-#         print(request.data)
-#         serializer = self.serializer_class(data=request.data,
-#                                            context={'request': request})
-        
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.validated_data['user']
-#         token, created = Token.objects.get_or_create(user=user)
-#         return Response({'token': token.key, 'user': UserSerializer(user).data})

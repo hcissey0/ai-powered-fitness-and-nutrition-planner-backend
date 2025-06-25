@@ -1,3 +1,4 @@
+# rest/authentication.py
 from rest_framework.authentication import TokenAuthentication
 
 

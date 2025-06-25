@@ -21,12 +21,12 @@ from rest_framework import routers
 from rest import views as rest_views
 
 router = routers.DefaultRouter() 
-router.register(r'users', rest_views.UserViewSet)
+router.register(r'users', rest_views.UserViewSet, basename='user')
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/auth/login/', rest_views.LoginView.as_view(), name='auth-login'),
+    path('api/auth/signup/', rest_views.SignUpView.as_view(), name='auth-signup'),
     path('api/', include(router.urls)),  # Include the router URLs for User and Group viewsets
-    path('api/auth/login/', rest_views.LoginAuthView.as_view()),
-    path('api/auth/signup/', rest_views.SignUpAuthView.as_view()),
 ]

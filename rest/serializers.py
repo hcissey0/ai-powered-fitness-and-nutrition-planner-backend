@@ -1,88 +1,111 @@
+# rest/serializers.py
+
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-from rest.models import Exercise, FitnessPlan, Meal, NutritionDay, Profile, WorkoutDay # Assuming Profile is defined in rest/models.py
-
-
-# serializers.py
 from django.contrib.auth import authenticate
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 
+from .models import (
+    Exercise, FitnessPlan,
+    Meal, NutritionDay,
+    Profile, WorkoutDay
+)
+
 User = get_user_model()
 
+
+
 class EmailAuthTokenSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(trim_whitespace=False)
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(
+        style={'input_type': 'password'},
+        trim_whitespace=False,
+        write_only=True
+    )
+    token = serializers.CharField(read_only=True)
 
     def validate(self, attrs):
         email = attrs.get('email')
         password = attrs.get('password')
 
-        if email and password:
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                msg = _('A user with that email does not exist.')
-                raise serializers.ValidationError(msg, code='authorization')
-            # user = authenticate(request=self.context.get('request'), email=email, password=password)
-            # if not user:
-            #     msg = _('Unable to log in with provided credentials.')
-            #     raise serializers.ValidationError(msg, code='authorization')
-        else:
+        if not (email and password):
             msg = _('Must include "email" and "password".')
             raise serializers.ValidationError(msg, code='authorization')
 
+        try:
+            user = User.objects.get(email=email)
+            if not user.check_password(password):
+                msg = _('Unable to log in with provided credentials.')
+                raise serializers.ValidationError(msg, code='authorization')
+        except User.DoesNotExist:
+            msg = _('A user with this email does not exist.')
+            raise serializers.ValidationError(msg, code='authorization')
+        
         attrs['user'] = user
         return attrs
 
 
 
-class UserSerializer(serializers.ModelSerializer):
 
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'password', 'profile', 'first_name', 'last_name', 'is_active', 'date_joined']
-        extra_kwargs = {'password': {'write_only': True}}
-        depth = 1  # Adjust depth as needed for nested serialization
-        read_only_fields = ['id', 'date_joined', 'is_active']
-        
-        ordering = ['date_joined']
         
         
+
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)  # Assuming a OneToOne relationship with User
-    # user = serializers.PrimaryKeyRelatedField(read_only=True)  # Assuming a OneToOne relationship with User
-
-    def create(self, validated_data):
-        profile = Profile.objects.create( **validated_data)
-        return profile
-
-    def update(self, instance, validated_data):
-        instance.current_weight = validated_data.get('current_weight', instance.current_weight)
-        instance.height = validated_data.get('height', instance.height)
-        instance.age = validated_data.get('age', instance.age)
-        instance.weight = validated_data.get('weight', instance.weight)
-        instance.activity_level = validated_data.get('activity_level', instance.activity_level)
-        instance.goal = validated_data.get('goal', instance.goal)
-        # Assuming bmi is calculated based on other fields, you might want to handle that here
-        # For example, if height and weight are provided, calculate bmi
-        if instance.height and instance.weight:
-            height_meters = instance.height / 100.0
-            instance.bmi = instance.weight / (height_meters ** 2)
-        else:
-            instance.bmi = None
-        instance.save()
-        return instance
+    # This nested serializer is great for GET requests.
+    # user = UserSerializer(read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+    # user = serializers.PrimaryKeyRelatedField(read_only=True)
+    
+    # This calculated field is perfect.
+    bmi = serializers.SerializerMethodField()
 
     class Meta:
-        model = Profile  # Assuming you have a OneToOne relationship with Profile
-        # fields = ['user', 'current_weight', 'height', 'bmi', 'age', 'weight', 'activity_level', 'goal']
-        fields = '__all__'
-        read_only_fields = ['bmi', 'id']  # Assuming bmi is calculated and not set dir
-        # depth = 1  # Adjust depth as needed for nested serialization
+        model = Profile
+        fields = [
+            'id', 'user', 'current_weight', 'height', 'age', 'gender', 
+            'activity_level', 'goal', 'dietary_preferences', 'image',
+            'bmi', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_bmi(self, obj):
+        # This logic is correct. It will return None if data is missing.
+        return obj.bmi
+
+class UserSerializer(serializers.ModelSerializer):
+
+    profile = ProfileSerializer(read_only=True)
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'password', 'profile', 'first_name', 'last_name', 'is_active', 'date_joined']
+        extra_kwargs = {
+            'password': {'write_only': True, 'min_length': 6, 'style': {'input_type': 'password'}},
+            'email': {'required': True}
+            }
+        read_only_fields = ['id', 'date_joined', 'is_active']
+        
+        ordering = ['date_joined']
+
+    def validate_email(self, value):
+        """
+        Check if the email is already in use.
+        """
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
+        return user
 
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -113,7 +136,6 @@ class NutritionDaySerializer(serializers.ModelSerializer):
 
 
 class FitnessPlanSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)
     workout_days = WorkoutDaySerializer(many=True, read_only=True)
     nutrition_days = NutritionDaySerializer(many=True, read_only=True)
 
