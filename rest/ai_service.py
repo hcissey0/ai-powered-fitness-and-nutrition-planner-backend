@@ -50,7 +50,7 @@ client = genai.Client(api_key=getenv('GOOGLE_AI_API_KEY')
 # It's best practice to do this once, not in every function call.
 
 
-def generate_and_save_plan_for_user(user_profile: Profile):
+def generate_and_save_plan_for_user(user_profile: Profile, start_date, end_date):
     """
     Generates a new fitness and nutrition plan using the Gemini API
     with structured output and saves it to the database.
@@ -70,11 +70,16 @@ def generate_and_save_plan_for_user(user_profile: Profile):
     - Goal: {user_profile.get_goal_display()}
     - Activity Level: {user_profile.get_activity_level_display()}
     - Dietary Preferences: {user_profile.dietary_preferences or 'None specified'}
+    
+    Plan Details:
+    - Start Date: {start_date}
+    - End Date: {end_date}
 
     Instructions:
     - The nutrition plan must focus on common, accessible Ghanaian foods.
     - The workout plan should include exercises that require minimal or no gym equipment.
     - Ensure all fields in the schema are populated accurately. For rest days, the 'exercises' list should be empty.
+    - Ensure days and dates matches the provided plan details.
     """
 
     # 2. Call the Gemini API with your Pydantic schema

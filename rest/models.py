@@ -141,6 +141,38 @@ class Meal(models.Model):
         return f"{self.get_meal_type_display()}: {self.description}"
 
 
+class WorkoutTracking(models.Model):
+    """ Track completion of individual exercises """
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name='tracking_records')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date_completed = models.DateField()
+    sets_completed = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True, help_text="User notes about this workout session")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['exercise', 'user', 'date_completed']
+        ordering = ['-date_completed']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.exercise.name} on {self.date_completed}"
+
+class MealTracking(models.Model):
+    """ Track completion of meals """
+    meal = models.ForeignKey(Meal, on_delete=models.CASCADE, related_name='tracking_records')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date_completed = models.DateField()
+    portion_consumed = models.FloatField(default=1.0, help_text="Portion consumed (1.0 = full portion, 0.5 = half, etc.)")
+    notes = models.TextField(blank=True, help_text="User notes about this meal")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['meal', 'user', 'date_completed']
+        ordering = ['-date_completed']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.meal.description} on {self.date_completed}"
+
 @receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:

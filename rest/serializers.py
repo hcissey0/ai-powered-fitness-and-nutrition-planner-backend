@@ -9,7 +9,8 @@ from django.contrib.auth import get_user_model
 from .models import (
     Exercise, FitnessPlan,
     Meal, NutritionDay,
-    Profile, WorkoutDay
+    Profile, WorkoutDay,
+    WorkoutTracking, MealTracking
 )
 
 User = get_user_model()
@@ -44,12 +45,6 @@ class EmailAuthTokenSerializer(serializers.Serializer):
         
         attrs['user'] = user
         return attrs
-
-
-
-
-        
-        
 
 
 
@@ -93,8 +88,14 @@ class UserSerializer(serializers.ModelSerializer):
         """
         Check if the email is already in use.
         """
-        if User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+        # During update, exclude the current user from the check
+        if self.instance:
+            if User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
+                raise serializers.ValidationError("A user with this email already exists.")
+        else:
+            # During creation, check all users
+            if User.objects.filter(email__iexact=value).exists():
+                raise serializers.ValidationError("A user with this email already exists.")
         return value
     
     def create(self, validated_data):
@@ -106,6 +107,21 @@ class UserSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', '')
         )
         return user
+    
+    def update(self, instance, validated_data):
+        # Handle password separately if provided
+        password = validated_data.pop('password', None)
+        
+        # Update the regular fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # Handle password update
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
 
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -143,6 +159,24 @@ class FitnessPlanSerializer(serializers.ModelSerializer):
         model = FitnessPlan
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+class WorkoutTrackingSerializer(serializers.ModelSerializer):
+    exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+    exercise_sets = serializers.IntegerField(source='exercise.sets', read_only=True)
+    
+    class Meta:
+        model = WorkoutTracking
+        fields = ['id', 'exercise', 'exercise_name', 'exercise_sets', 'date_completed', 'sets_completed', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class MealTrackingSerializer(serializers.ModelSerializer):
+    meal_description = serializers.CharField(source='meal.description', read_only=True)
+    meal_type = serializers.CharField(source='meal.meal_type', read_only=True)
+    
+    class Meta:
+        model = MealTracking
+        fields = ['id', 'meal', 'meal_description', 'meal_type', 'date_completed', 'portion_consumed', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 

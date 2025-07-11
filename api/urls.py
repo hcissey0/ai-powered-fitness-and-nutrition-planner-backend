@@ -28,5 +28,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/login/', rest_views.LoginView.as_view(), name='auth-login'),
     path('api/auth/signup/', rest_views.SignUpView.as_view(), name='auth-signup'),
-    path('api/', include(router.urls)),  # Include the router URLs for User and Group viewsets
+    path('api/', include(router.urls)),
+    path('api/status/', rest_views.StatusView.as_view(), name='status'),
 ]
