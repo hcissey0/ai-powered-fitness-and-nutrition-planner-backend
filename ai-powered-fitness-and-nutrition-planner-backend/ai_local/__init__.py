@@ -1,1 +1,0 @@
-# AI Local Django App
