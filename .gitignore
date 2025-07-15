@@ -5,3 +5,4 @@ __pycache__
 venv
 model.gguf
 *.sql*
+db.sqlite3

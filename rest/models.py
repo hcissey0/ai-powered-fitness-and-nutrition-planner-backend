@@ -115,6 +115,7 @@ class NutritionDay(models.Model):
     target_protein_grams = models.PositiveIntegerField(null=True, blank=True)
     target_carbs_grams = models.PositiveIntegerField(null=True, blank=True)
     target_fats_grams = models.PositiveIntegerField(null=True, blank=True)
+    target_water_litres = models.FloatField(null=True, blank=True, help_text="Recommended water intake in liters.")
     
     class Meta:
         ordering = ['day_of_week']

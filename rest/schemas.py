@@ -35,6 +35,7 @@ class NutritionDaySchema(BaseModel):
     target_protein_grams: Optional[int] = None
     target_carbs_grams: Optional[int] = None
     target_fats_grams: Optional[int] = None
+    target_water_litres: Optional[float] = Field(None, description="Recommended water intake in liters.")
     notes: Optional[str] = Field(None, description="General advice for the day, e.g., 'Drink 3L of water.'")
     meals: List[MealSchema]
 

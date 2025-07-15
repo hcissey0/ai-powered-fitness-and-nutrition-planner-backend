@@ -165,7 +165,8 @@ def generate_and_save_plan_for_user(user_profile: Profile, start_date: date):
                     target_calories=nd_data['target_calories'],
                     target_protein_grams=nd_data['target_protein_grams'],
                     target_carbs_grams=nd_data['target_carbs_grams'],
-                    target_fats_grams=nd_data['target_fats_grams']
+                    target_fats_grams=nd_data['target_fats_grams'],
+                    target_water_litres=nd_data['target_water_litres'] # Handle optional field
                 )
                 for meal_data in nd_data['meals']:
                     Meal.objects.create(
