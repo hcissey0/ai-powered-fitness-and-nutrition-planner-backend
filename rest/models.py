@@ -98,7 +98,7 @@ class Exercise(models.Model):
     sets = models.PositiveIntegerField()
     reps = models.CharField(max_length=50, help_text="e.g., '10-12', 'AMRAP (As Many Reps As Possible)'")
     rest_period_seconds = models.PositiveIntegerField(help_text="Rest time in seconds between sets.")
-    notes = models.TextField(blank=True, help_text="Specific instructions or Ghanaian context.")
+    notes = models.TextField(blank=True, null=True, help_text="Specific instructions or Ghanaian context.")
 
     def __str__(self):
         return f"{self.name} ({self.sets} sets of {self.reps})"
@@ -108,7 +108,7 @@ class NutritionDay(models.Model):
     """ Represents a single day's nutrition plan. """
     plan = models.ForeignKey(FitnessPlan, on_delete=models.CASCADE, related_name='nutrition_days')
     day_of_week = models.IntegerField(choices=WorkoutDay.DAY_CHOICES)
-    notes = models.TextField(blank=True, help_text="General advice for the day, e.g., 'Drink 3L of water.'")
+    notes = models.TextField(blank=True, null=True, help_text="General advice for the day, e.g., 'Drink 3L of water.'")
     
     # Target macronutrients for the day
     target_calories = models.PositiveIntegerField(null=True, blank=True)
@@ -148,7 +148,7 @@ class WorkoutTracking(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     date_completed = models.DateField()
     sets_completed = models.PositiveIntegerField(default=0)
-    notes = models.TextField(blank=True, help_text="User notes about this workout session")
+    notes = models.TextField(blank=True, null=True, help_text="User notes about this workout session")
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -164,7 +164,7 @@ class MealTracking(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     date_completed = models.DateField()
     portion_consumed = models.FloatField(default=1.0, help_text="Portion consumed (1.0 = full portion, 0.5 = half, etc.)")
-    notes = models.TextField(blank=True, help_text="User notes about this meal")
+    notes = models.TextField(blank=True, null=True, help_text="User notes about this meal")
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -173,6 +173,22 @@ class MealTracking(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.meal.description} on {self.date_completed}"
+    
+class WaterTracking(models.Model):
+    """ Track completion of daily water intake """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField()
+    nutrition_day = models.ForeignKey(NutritionDay, on_delete=models.CASCADE, related_name='water_tracking_records')
+    litres_consumed = models.FloatField(default=0.0, help_text="Litres of water consumed")
+    notes = models.TextField(blank=True, null=True, help_text="User notes about this water intake")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        # unique_together = ['user', 'date', 'nutrition_day']
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.litres_consumed}L on {self.date}"
 
 @receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):

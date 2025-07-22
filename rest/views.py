@@ -10,9 +10,13 @@ from .ai_service import generate_and_save_plan_for_user
 # from ai_local.services import generate_and_save_local_plan_for_user as generate_and_save_plan_for_user
 from .serializers import (
     FitnessPlanSerializer, UserSerializer, ProfileSerializer, EmailAuthTokenSerializer,
-    WorkoutTrackingSerializer, MealTrackingSerializer
+    WorkoutTrackingSerializer, MealTrackingSerializer, WaterTrackingSerializer
 )
-from .models import Profile, WorkoutTracking, MealTracking, Exercise, Meal, FitnessPlan, WorkoutDay, NutritionDay
+from .models import (
+ Profile, WorkoutTracking, MealTracking, 
+ Exercise, Meal, FitnessPlan, WorkoutDay, NutritionDay,
+ WaterTracking,
+)
 from django.db.models import Count, Q
 from datetime import datetime, date, timedelta
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -191,6 +195,12 @@ class UserViewSet(viewsets.ModelViewSet):
             except (ValueError, ImportError):
                 # Fallback or error for invalid format
                 return Response({"detail": "Invalid date format. Use ISO 8601 format."}, status=status.HTTP_400_BAD_REQUEST)
+            
+
+            # check if start_date is 7 days less than today
+            if (date.today() - start_date).days > 6:
+                return Response({"detail": "Cannot create plan for a past date."}, status=status.HTTP_400_BAD_REQUEST)
+
 
             # Check for overlapping plans
             overlapping_plans = FitnessPlan.objects.filter(
@@ -284,12 +294,15 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         elif request.method == 'POST':
-            data = request.data.copy()
-            data['user'] = request.user.id
-            serializer = MealTrackingSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            try:
+                data = request.data.copy()
+                data['user'] = request.user.id
+                serializer = MealTrackingSerializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(user=request.user)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except:
+                return Response({'detail': "Meal already tracked"}, status=status.HTTP_400_BAD_REQUEST)
             
         elif request.method == 'DELETE':
             tracking_id = request.data.get('id')
@@ -302,7 +315,38 @@ class UserViewSet(viewsets.ModelViewSet):
             except MealTracking.DoesNotExist:
                 return Response({"detail": "Tracking record not found."}, status=status.HTTP_404_NOT_FOUND)
     
+    @action(detail=False, methods=['get', 'post', 'delete'], url_path='me/water-tracking')
+    def water_tracking(self, request):
+        """ Water Tracking handler"""
+        
+        if request.method == 'GET':
+            date = request.query_params.get('date')
+            queryset = WaterTracking.objects.filter(user=request.user)
+            if date:
+                queryset.filter(date=date)
+            queryset.order_by('date')
 
+            serializer = WaterTrackingSerializer(queryset, many=True)
+            return Response(serializer.data)
+        
+        elif request.method == "POST":
+            data = request.data.copy()
+            data['user'] = request.user.id
+            serializer = WaterTrackingSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        elif request.method == 'DELETE':
+            tracking_id = request.data.get('id')
+            if not tracking_id:
+                return Response({'detail': "Tracking record ID is required."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                tracking_record = WaterTracking.objects.get(pk=tracking_id, user=request.user)
+                tracking_record.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except:
+                return Response({"detail": "Tracking record not found."}, status=status.HTTP_404_NOT_FOUND)
     
 
     @action(detail=False, methods=['get'], url_path='me/daily-progress')
@@ -369,8 +413,8 @@ class UserViewSet(viewsets.ModelViewSet):
                     workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
                     workout_progress = 0
                     
+                    total_exercises = workout_day.exercises.count()
                     if workout_day and not workout_day.is_rest_day:
-                        total_exercises = workout_day.exercises.count()
                         if total_exercises > 0:
                             completed_exercises = WorkoutTracking.objects.filter(
                                 user=request.user,
@@ -385,8 +429,8 @@ class UserViewSet(viewsets.ModelViewSet):
                     nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
                     nutrition_progress = 0
                     
+                    total_meals = nutrition_day.meals.count()
                     if nutrition_day:
-                        total_meals = nutrition_day.meals.count()
                         if total_meals > 0:
                             completed_meals = MealTracking.objects.filter(
                                 user=request.user,
@@ -399,7 +443,9 @@ class UserViewSet(viewsets.ModelViewSet):
                         'date': target_date.strftime('%Y-%m-%d'),
                         'day_of_week': day_of_week,
                         'workout_progress': round(workout_progress, 1),
+                        'total_workout': round(total_exercises, 1),
                         'nutrition_progress': round(nutrition_progress, 1),
+                        'total_nutrition': round(total_meals, 1),
                         'is_rest_day': workout_day.is_rest_day if workout_day else False
                     })
         

@@ -77,6 +77,7 @@ def generate_and_save_plan_for_user(user_profile: Profile, start_date: date):
     Instructions:
     - The nutrition plan must focus on common, accessible Ghanaian foods.
     - The workout plan should include exercises that require minimal or no gym equipment.
+    - The workouts do not necessarily have to be localized to Ghana.
     - Ensure all fields in the schema are populated accurately. For rest days, the 'exercises' list should be empty.
     - Ensure days and dates matches the provided plan details.
     - Plans are supposed to span up to a maximum of 7 days.

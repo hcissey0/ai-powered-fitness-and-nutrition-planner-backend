@@ -10,7 +10,8 @@ from .models import (
     Exercise, FitnessPlan,
     Meal, NutritionDay,
     Profile, WorkoutDay,
-    WorkoutTracking, MealTracking
+    WorkoutTracking, MealTracking,
+    WaterTracking,
 )
 
 User = get_user_model()
@@ -178,5 +179,11 @@ class MealTrackingSerializer(serializers.ModelSerializer):
         fields = ['id', 'meal', 'meal_description', 'meal_type', 'date_completed', 'portion_consumed', 'notes', 'created_at']
         read_only_fields = ['id', 'created_at']
 
-
+class WaterTrackingSerializer(serializers.ModelSerializer):
+    target_litres = serializers.IntegerField(source='nutrition_day.target_water_litres', read_only=True)
+    
+    class Meta:
+        model: WaterTracking
+        fields = ['id', 'date', 'nutrition_day', 'litres_consumed', 'target_litres', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
