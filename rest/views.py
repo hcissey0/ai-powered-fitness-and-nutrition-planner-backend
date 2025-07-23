@@ -412,32 +412,33 @@ class UserViewSet(viewsets.ModelViewSet):
                     # Get planned workouts for this day
                     workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
                     workout_progress = 0
-                    
-                    total_exercises = workout_day.exercises.count()
-                    if workout_day and not workout_day.is_rest_day:
-                        if total_exercises > 0:
-                            completed_exercises = WorkoutTracking.objects.filter(
-                                user=request.user,
-                                date_completed=target_date,
-                                exercise__workout_day=workout_day
-                            ).count()
-                            workout_progress = (completed_exercises / total_exercises) * 100
-                    elif workout_day and workout_day.is_rest_day:
-                        workout_progress = 100  # Rest days are always "complete"
+                    if workout_day:                 
+                        total_exercises = workout_day.exercises.count()
+                        if workout_day and not workout_day.is_rest_day:
+                            if total_exercises > 0:
+                                completed_exercises = WorkoutTracking.objects.filter(
+                                    user=request.user,
+                                    date_completed=target_date,
+                                    exercise__workout_day=workout_day
+                                ).count()
+                                workout_progress = (completed_exercises / total_exercises) * 100
+                        elif workout_day and workout_day.is_rest_day:
+                            workout_progress = 100  # Rest days are always "complete"
                     
                     # Get planned meals for this day
                     nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
                     nutrition_progress = 0
                     
-                    total_meals = nutrition_day.meals.count()
                     if nutrition_day:
-                        if total_meals > 0:
-                            completed_meals = MealTracking.objects.filter(
-                                user=request.user,
-                                date_completed=target_date,
-                                meal__nutrition_day=nutrition_day
-                            ).count()
-                            nutrition_progress = (completed_meals / total_meals) * 100
+                        total_meals = nutrition_day.meals.count()
+                        if nutrition_day:
+                            if total_meals > 0:
+                                completed_meals = MealTracking.objects.filter(
+                                    user=request.user,
+                                    date_completed=target_date,
+                                    meal__nutrition_day=nutrition_day
+                                ).count()
+                                nutrition_progress = (completed_meals / total_meals) * 100
                     
                     progress_data.append({
                         'date': target_date.strftime('%Y-%m-%d'),
