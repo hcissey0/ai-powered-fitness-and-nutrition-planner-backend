@@ -183,7 +183,7 @@ class WaterTrackingSerializer(serializers.ModelSerializer):
     target_litres = serializers.IntegerField(source='nutrition_day.target_water_litres', read_only=True)
     
     class Meta:
-        model: WaterTracking
+        model = WaterTracking
         fields = ['id', 'date', 'nutrition_day', 'litres_consumed', 'target_litres', 'notes', 'created_at']
         read_only_fields = ['id', 'created_at']
 

@@ -333,6 +333,7 @@ class UserViewSet(viewsets.ModelViewSet):
             data = request.data.copy()
             data['user'] = request.user.id
             serializer = WaterTrackingSerializer(data=data)
+            print(data)
             serializer.is_valid(raise_exception=True)
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
