@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
     # local apps
     'rest',
-    'ai_local',
+    # 'ai_local',
 ]
 
 
@@ -89,9 +89,12 @@ MIDDLEWARE = [
     # 'allauth.account.middleware.AccountMiddleware'
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    # '*',  # Allow all origins for development; adjust in production
-    'http://localhost:3000',  # React app running on localhost
+# CORS_ALLOWED_ORIGINS = [
+#     '*',  # Allow all origins for development; adjust in production
+#     # 'http://localhost:3000',  # React app running on localhost
+# ]
+ALLOWED_HOSTS = [
+    '*'
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -122,15 +125,15 @@ WSGI_APPLICATION = 'api.wsgi.application'
 DATABASES = {
     'default': {
         # for sqlite
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # Path to your SQLite database file
+        # 'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'db.sqlite3',  # Path to your SQLite database file
         # for postgresql
-        # 'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
-        # 'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
-        # 'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
-        # 'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
-        # 'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
-        # 'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
+        'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
+        'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
+        'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
+        'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
+        'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
+        'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
     }
 }
 

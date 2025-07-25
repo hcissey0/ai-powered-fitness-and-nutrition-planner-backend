@@ -17,7 +17,7 @@ from .models import (
  Exercise, Meal, FitnessPlan, WorkoutDay, NutritionDay,
  WaterTracking,
 )
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from datetime import datetime, date, timedelta
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
@@ -350,14 +350,15 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Tracking record not found."}, status=status.HTTP_404_NOT_FOUND)
     
 
-    @action(detail=False, methods=['get'], url_path='me/daily-progress')
-    def daily_progress(self, request):
+    @action(detail=False, methods=['get'], url_path='me/progress')
+    def progress(self, request):
         """
         GET: Calculate daily progress for workout and nutrition for a specific date or date range.
         Query params:
         - date: specific date (YYYY-MM-DD)
         - start_date: start of date range (YYYY-MM-DD)
         - end_date: end of date range (YYYY-MM-DD)
+        - otherwise: the whole month
         """
         try:
             profile = request.user.profile
@@ -392,12 +393,12 @@ class UserViewSet(viewsets.ModelViewSet):
             except ValueError:
                 return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            # Default to today
-            dates = [date.today()]
+            # Default to the whole month
+            # dates = [date.today()]
 
-        today = date.today()
-        dates_in_month = [date(today.year, today.month, day) for day in range(1, calendar.monthrange(today.year, today.month)[1] + 1)]
-        dates = dates_in_month
+            today = date.today()
+            dates_in_month = [date(today.year, today.month, day) for day in range(1, calendar.monthrange(today.year, today.month)[1] + 1)]
+            dates = dates_in_month
         
         progress_data = []
 
@@ -419,7 +420,7 @@ class UserViewSet(viewsets.ModelViewSet):
                             if total_exercises > 0:
                                 completed_exercises = WorkoutTracking.objects.filter(
                                     user=request.user,
-                                    date_completed=target_date,
+                                    # date_completed=target_date,
                                     exercise__workout_day=workout_day
                                 ).count()
                                 workout_progress = (completed_exercises / total_exercises) * 100
@@ -429,17 +430,27 @@ class UserViewSet(viewsets.ModelViewSet):
                     # Get planned meals for this day
                     nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
                     nutrition_progress = 0
+                    water_progress = 0
                     
                     if nutrition_day:
                         total_meals = nutrition_day.meals.count()
                         if nutrition_day:
+                            total_water = nutrition_day.target_water_litres
+                            completed_water = WaterTracking.objects.filter(
+                                user=request.user,
+                                nutrition_day=nutrition_day,
+                                # date=target_date
+                                ).aggregate(total=Sum('litres_consumed'))['total'] or 0.0
+                            water_progress = (completed_water / total_water) * 100
                             if total_meals > 0:
                                 completed_meals = MealTracking.objects.filter(
                                     user=request.user,
-                                    date_completed=target_date,
+                                    # date_completed=target_date,
                                     meal__nutrition_day=nutrition_day
                                 ).count()
                                 nutrition_progress = (completed_meals / total_meals) * 100
+
+
                     
                     progress_data.append({
                         'date': target_date.strftime('%Y-%m-%d'),
@@ -448,6 +459,8 @@ class UserViewSet(viewsets.ModelViewSet):
                         'total_workout': round(total_exercises, 1),
                         'nutrition_progress': round(nutrition_progress, 1),
                         'total_nutrition': round(total_meals, 1),
+                        'water_progress': round(water_progress, 1),
+                        'total_water': round(total_water, 1),
                         'is_rest_day': workout_day.is_rest_day if workout_day else False
                     })
         
@@ -455,75 +468,75 @@ class UserViewSet(viewsets.ModelViewSet):
             'progress': progress_data
         })
 
-    @action(detail=False, methods=['get'], url_path='me/weekly-progress')
-    def weekly_progress(self, request):
-        """
-        GET: Calculate weekly progress for workout and nutrition for the current week or a specified week.
-        Query params:
-        - week_start: start date of the week (YYYY-MM-DD), defaults to current week's Monday
-        """
-        try:
-            profile = request.user.profile
-        except Profile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+    # @action(detail=False, methods=['get'], url_path='me/weekly-progress')
+    # def weekly_progress(self, request):
+    #     """
+    #     GET: Calculate weekly progress for workout and nutrition for the current week or a specified week.
+    #     Query params:
+    #     - week_start: start date of the week (YYYY-MM-DD), defaults to current week's Monday
+    #     """
+    #     try:
+    #         profile = request.user.profile
+    #     except Profile.DoesNotExist:
+    #         return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        plans = profile.fitness_plans.all()
-        active_plan = profile.fitness_plans.filter(is_active=True).first()
-        if not active_plan:
-            return Response({"detail": "No active fitness plan found."}, status=status.HTTP_404_NOT_FOUND)
+    #     plans = profile.fitness_plans.all()
+    #     active_plan = profile.fitness_plans.filter(is_active=True).first()
+    #     if not active_plan:
+    #         return Response({"detail": "No active fitness plan found."}, status=status.HTTP_404_NOT_FOUND)
 
-        week_start_param = request.query_params.get('week_start')
-        if week_start_param:
-            try:
-                week_start = datetime.strptime(week_start_param, '%Y-%m-%d').date()
-            except ValueError:
-                return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            today = date.today()
-            week_start = today - timedelta(days=today.weekday())  # Monday
+    #     week_start_param = request.query_params.get('week_start')
+    #     if week_start_param:
+    #         try:
+    #             week_start = datetime.strptime(week_start_param, '%Y-%m-%d').date()
+    #         except ValueError:
+    #             return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+    #     else:
+    #         today = date.today()
+    #         week_start = today - timedelta(days=today.weekday())  # Monday
 
-        week_dates = [week_start + timedelta(days=i) for i in range(7)]
+    #     week_dates = [week_start + timedelta(days=i) for i in range(7)]
 
-        progress_data = []
-        for a_plan in plans:
-            for target_date in week_dates:
-                if a_plan.start_date <= target_date <= a_plan.end_date:
-                    day_of_week = target_date.isoweekday()
-                    workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
-                    workout_progress = 0
-                    if workout_day and not workout_day.is_rest_day:
-                        total_exercises = workout_day.exercises.count()
-                        if total_exercises > 0:
-                            completed_exercises = WorkoutTracking.objects.filter(
-                                user=request.user,
-                                date_completed=target_date,
-                                exercise__workout_day=workout_day
-                            ).count()
-                        workout_progress = (completed_exercises / total_exercises) * 100
-                    elif workout_day and workout_day.is_rest_day:
-                        workout_progress = 100
+    #     progress_data = []
+    #     for a_plan in plans:
+    #         for target_date in week_dates:
+    #             if a_plan.start_date <= target_date <= a_plan.end_date:
+    #                 day_of_week = target_date.isoweekday()
+    #                 workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
+    #                 workout_progress = 0
+    #                 if workout_day and not workout_day.is_rest_day:
+    #                     total_exercises = workout_day.exercises.count()
+    #                     if total_exercises > 0:
+    #                         completed_exercises = WorkoutTracking.objects.filter(
+    #                             user=request.user,
+    #                             # date_completed=target_date,
+    #                             exercise__workout_day=workout_day
+    #                         ).count()
+    #                     workout_progress = (completed_exercises / total_exercises) * 100
+    #                 elif workout_day and workout_day.is_rest_day:
+    #                     workout_progress = 100
 
-                    nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
-                    nutrition_progress = 0
-                    if nutrition_day:
-                        total_meals = nutrition_day.meals.count()
-                        if total_meals > 0:
-                            completed_meals = MealTracking.objects.filter(
-                                user=request.user,
-                                date_completed=target_date,
-                                meal__nutrition_day=nutrition_day
-                            ).count()
-                        nutrition_progress = (completed_meals / total_meals) * 100
+    #                 nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
+    #                 nutrition_progress = 0
+    #                 if nutrition_day:
+    #                     total_meals = nutrition_day.meals.count()
+    #                     if total_meals > 0:
+    #                         completed_meals = MealTracking.objects.filter(
+    #                             user=request.user,
+    #                             # date_completed=target_date,
+    #                             meal__nutrition_day=nutrition_day
+    #                         ).count()
+    #                     nutrition_progress = (completed_meals / total_meals) * 100
 
-                    progress_data.append({
-                        'date': target_date.strftime('%Y-%m-%d'),
-                        'day_of_week': day_of_week,
-                        'workout_progress': round(workout_progress, 1),
-                        'nutrition_progress': round(nutrition_progress, 1),
-                        'is_rest_day': workout_day.is_rest_day if workout_day else False
-                    })
+    #                 progress_data.append({
+    #                     'date': target_date.strftime('%Y-%m-%d'),
+    #                     'day_of_week': day_of_week,
+    #                     'workout_progress': round(workout_progress, 1),
+    #                     'nutrition_progress': round(nutrition_progress, 1),
+    #                     'is_rest_day': workout_day.is_rest_day if workout_day else False
+    #                 })
 
-        return Response({'progress': progress_data})
+    #     return Response({'progress': progress_data})
 
 # a status view
 class StatusView(APIView):
