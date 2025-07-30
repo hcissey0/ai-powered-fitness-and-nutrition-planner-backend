@@ -26,7 +26,6 @@ SECRET_KEY = getenv('SECRET_KEY', 'django-insecure-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -89,10 +88,7 @@ MIDDLEWARE = [
     # 'allauth.account.middleware.AccountMiddleware'
 ]
 
-# CORS_ALLOWED_ORIGINS = [
-#     '*',  # Allow all origins for development; adjust in production
-#     # 'http://localhost:3000',  # React app running on localhost
-# ]
+
 ALLOWED_HOSTS = [
     '*'
 ]
