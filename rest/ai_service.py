@@ -70,6 +70,11 @@ def generate_and_save_plan_for_user(user_profile: Profile, start_date: date):
     - Goal: {user_profile.get_goal_display()}
     - Activity Level: {user_profile.get_activity_level_display()}
     - Dietary Preferences: {user_profile.dietary_preferences or 'None specified'}
+    - Allergies: {user_profile.allergies or 'None specified'}
+    - Liked Foods: {user_profile.liked_foods or 'None specified'}
+    - Disliked Foods: {user_profile.disliked_foods or 'None specified'}
+    - Disabilities: {user_profile.disabilities or 'None specified'}
+    - Medical Conditions: {user_profile.medical_conditions or 'None specified'}
     
     Plan Details:
     - Start Date: {start_date} weekday = {start_date.isoweekday()}
@@ -80,7 +85,7 @@ def generate_and_save_plan_for_user(user_profile: Profile, start_date: date):
     - The workouts do not necessarily have to be localized to Ghana.
     - Ensure all fields in the schema are populated accurately. For rest days, the 'exercises' list should be empty.
     - Ensure days and dates matches the provided plan details.
-    - Plans are supposed to span up to a maximum of 7 days.
+    - Plans are supposed to span up to a maximum of 7 days (weekly, Monday to Sunday).
     """
 
     # 2. Call the Gemini API with your Pydantic schema
