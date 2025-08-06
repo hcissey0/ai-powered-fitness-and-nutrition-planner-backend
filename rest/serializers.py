@@ -50,26 +50,56 @@ class EmailAuthTokenSerializer(serializers.Serializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    # This nested serializer is great for GET requests.
-    # user = UserSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
-    # user = serializers.PrimaryKeyRelatedField(read_only=True)
-    
-    # This calculated field is perfect.
     bmi = serializers.SerializerMethodField()
+
+    # Expose lists as computed fields
+    allergies_list = serializers.SerializerMethodField()
+    liked_foods_list = serializers.SerializerMethodField()
+    disliked_foods_list = serializers.SerializerMethodField()
+    disabilities_list = serializers.SerializerMethodField()
+    medical_conditions_list = serializers.SerializerMethodField()
+    dietary_preferences_list = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'user', 'current_weight', 'height', 'age', 'gender', 
-            'activity_level', 'goal', 'dietary_preferences', 'image',
-            'bmi', 'created_at', 'updated_at'
+            'id', 'user', 'age', 'gender', 'height', 'image', 'current_weight',
+            'activity_level', 'goal', 'dietary_preferences',
+            'allergies', 'liked_foods', 'disliked_foods',
+            'disabilities', 'medical_conditions',
+            'allergies_list', 'liked_foods_list', 'disliked_foods_list',
+            'disabilities_list', 'medical_conditions_list',
+            'bmi', 'created_at', 'updated_at', 'dietary_preferences_list',
+            'notifications_enabled', 'tracking_enabled',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    # BMI calculation
     def get_bmi(self, obj):
-        # This logic is correct. It will return None if data is missing.
-        return obj.bmi
+        if obj.height and obj.current_weight:
+            return round(obj.current_weight / (obj.height ** 2), 2)
+        return None
+
+    # List conversions
+    def get_dietary_preferences_list(self, obj):
+        return obj.get_dietary_preferences_list()
+
+    def get_allergies_list(self, obj):
+        return obj.get_allergies_list()
+
+    def get_liked_foods_list(self, obj):
+        return obj.get_liked_foods_list()
+
+    def get_disliked_foods_list(self, obj):
+        return obj.get_disliked_foods_list()
+
+    def get_disabilities_list(self, obj):
+        return obj.get_disabilities_list()
+
+    def get_medical_conditions_list(self, obj):
+        return obj.get_medical_conditions_list()
+
 
 class UserSerializer(serializers.ModelSerializer):
 
@@ -187,3 +217,5 @@ class WaterTrackingSerializer(serializers.ModelSerializer):
         fields = ['id', 'date', 'nutrition_day', 'litres_consumed', 'target_litres', 'notes', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+
+    

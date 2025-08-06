@@ -1,3 +1,4 @@
+# api/settings.py
 """
 Django settings for api project.
 
@@ -44,11 +45,24 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',  # For handling CORS
 
+    # Apps for social auth
+    'dj_rest_auth',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+
     # local apps
     'rest',
     # 'ai_local',
 ]
 
+SITE_ID=1
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -63,6 +77,40 @@ REST_FRAMEWORK = {
     # ),
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     # 'PAGE_SIZE': 500,
+}
+
+REST_AUTH = {
+    'USE_JWT': False,
+    'SESSION_LOGIN': False,
+    'TOKEN_MODEL': 'rest_framework.authtoken.models.Token',
+    # 'TOKEN_CREATOR': 'dj_rest_auth.utils.create_token',
+}
+
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None # using email for login
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = 'none' # 'optional' or 'mandatory' in prod
+
+ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'rest.adapters.CustomSocialAccountAdapter'
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': getenv('GOOGLE_AUTH_CLIENT_ID'),
+            'secret': getenv('GOOGLE_AUTH_SECRET'),
+            'key': ''
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
 }
 
 # settings.py
@@ -85,7 +133,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'allauth.account.middleware.AccountMiddleware'
+    'allauth.account.middleware.AccountMiddleware'
 ]
 
 
@@ -121,15 +169,18 @@ WSGI_APPLICATION = 'api.wsgi.application'
 DATABASES = {
     'default': {
         # for sqlite
-        # 'ENGINE': 'django.db.backends.sqlite3',
-        # 'NAME': BASE_DIR / 'db.sqlite3',  # Path to your SQLite database file
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',  # Path to your SQLite database file
+        'OPTIONS': {
+            'timeout': 20, # seconds
+        },
         # for postgresql
-        'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
-        'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
-        'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
-        'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
-        'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
-        'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
+        # 'ENGINE': f'django.db.backends.{getenv("DB_TYPE", "postgresql")}',
+        # 'NAME': getenv('DB_NAME', 'postgres'),  # Replace with your actual database name
+        # 'USER': getenv('DB_USER', 'postgres'),  # Replace with your actual database user
+        # 'PASSWORD': getenv('DB_PASSWORD', 'postgres'),  # Replace with your actual password
+        # 'HOST': getenv('DB_HOST', 'localhost'),  # or your database host
+        # 'PORT': getenv('DB_PORT', '54322'),  # Default PostgreSQL port
     }
 }
 
@@ -138,18 +189,18 @@ DATABASES = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    # },
 ]
 
 

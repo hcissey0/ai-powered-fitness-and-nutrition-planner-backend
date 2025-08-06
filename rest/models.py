@@ -24,6 +24,7 @@ class Profile(models.Model):
             ('lightly_active', 'Lightly Active (light exercise/sports 1-3 days/week)'),
             ('moderately_active', 'Moderately Active (moderate exercise/sports 3-5 days/week)'),
             ('very_active', 'Very Active (hard exercise/sports 6-7 days a week)'),
+            ('athlete', 'Intense daily exercise'),
         ],
         null=True, blank=True
     )
@@ -33,14 +34,43 @@ class Profile(models.Model):
             ('weight_loss', 'Weight Loss'),
             ('maintenance', 'Maintenance'),
             ('muscle_gain', 'Muscle Gain'),
+            ('endurance', 'Endurance/Performance'),
         ],
         null=True, blank=True
     )
     # Optional: User can specify dietary preferences or restrictions
-    dietary_preferences = models.TextField(blank=True, null=True, help_text="e.g., 'no red meat', 'prefers fish', 'allergic to groundnuts'")
-    
+    dietary_preferences = models.TextField(blank=True, null=True, help_text="e.g., 'none', 'vegetarian', 'vegan', 'halal', ")
+
+    allergies = models.TextField(blank=True, null=True, help_text="Comma-separated list of allergies")
+    disliked_foods = models.TextField(blank=True, null=True, help_text="Comma-separated list of foods you dislike")
+    liked_foods = models.TextField(blank=True, null=True, help_text="Comma-separated list of favorite foods")
+
+    disabilities = models.TextField(blank=True, null=True, help_text="Comma-separated list of physical limitations")
+    medical_conditions = models.TextField(blank=True, null=True, help_text="E.g., diabetes, hypertension")
+
+    notifications_enabled = models.BooleanField(default=True)
+    tracking_enabled = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def get_dietary_preferences_list(self):
+        return [d.strip() for d in self.dietary_preferences.split(',') if d.strip()] if self.dietary_preferences else []
+    
+    def get_allergies_list(self):
+        return [a.strip() for a in self.allergies.split(',') if a.strip()] if self.allergies else []
+    
+    def get_liked_foods_list(self):
+        return [f.strip() for f in self.liked_foods.split(',') if f.strip()] if self.liked_foods else []
+
+    def get_disliked_foods_list(self):
+        return [f.strip() for f in self.disliked_foods.split(',') if f.strip()] if self.disliked_foods else []
+
+    def get_disabilities_list(self):
+        return [d.strip() for d in self.disabilities.split(',') if d.strip()] if self.disabilities else []
+    
+    def get_medical_conditions_list(self):
+        return [m.strip() for m in self.medical_conditions.split(',') if m.strip()] if self.medical_conditions else []
     
     # You can add a property for BMI if you like
     @property
@@ -50,7 +80,8 @@ class Profile(models.Model):
         return None
 
     def __str__(self):
-        return f"{self.user.username}'s Profile"
+        username = self.user.username or self.user.email or f"User {self.user.id}"
+        return f"{username}'s Profile"
 
 # --- New Models for Fitness Plans ---
 

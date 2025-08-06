@@ -23,7 +23,10 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework import status, generics # Make sure to import status
 
-
+# google auth imports
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
 
 
 
@@ -112,9 +115,18 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
     
+    @action(detail=False, methods=['delete'], url_path='me/delete')
+    def me_delete(self, request):
+        """
+        Deletes the current user
+        """
+        user = request.user
+        user.delete()
+
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get', 'post', 'put', 'patch'], url_path='me/profile')
-    def me_profile(self, request, pk=None):
+    def me_profile(self, request):
         """
         Retrieve, create, or update the profile for the currently authenticated user.
         """
@@ -126,14 +138,15 @@ class UserViewSet(viewsets.ModelViewSet):
 
         if request.method == 'GET':
             if not profile:
-                return Response({"message": "Profile not found. Please create one by sending a POST request."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "Profile not found. Please create one by sending a POST request."}, status=status.HTTP_404_NOT_FOUND)
             
             serializer = ProfileSerializer(profile)
             return Response(serializer.data)
 
         elif request.method == 'POST':
             if profile:
-                return Response({"message": "Profile already exists. Use PUT or PATCH to update."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "Profile already exists. Use PUT or PATCH to update."}, status=status.HTTP_400_BAD_REQUEST)
+            
             
             # Use the serializer to validate and create
             serializer = ProfileSerializer(data=request.data)
@@ -144,7 +157,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         elif request.method in ['PUT', 'PATCH']:
             if not profile:
-                return Response({"message": "Profile not found. Please create one first."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "Profile not found. Please create one first."}, status=status.HTTP_404_NOT_FOUND)
             
             # Use the serializer to validate and update
             # partial=True allows for partial updates with PATCH
@@ -239,7 +252,6 @@ class UserViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 return Response({'detail': "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-    
     @action(detail=False, methods=['get', 'post', 'delete'], url_path='me/workout-tracking')
     def workout_tracking(self, request):
         """
@@ -258,6 +270,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         elif request.method == 'POST':
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             data = request.data.copy()
             data['user'] = request.user.id
             serializer = WorkoutTrackingSerializer(data=data)
@@ -266,6 +280,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         elif request.method == 'DELETE':
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             tracking_id = request.data.get('id')
             if not tracking_id:
                 return Response({"detail": "Tracking record ID is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -294,6 +310,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         elif request.method == 'POST':
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 data = request.data.copy()
                 data['user'] = request.user.id
@@ -305,6 +323,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({'detail': "Meal already tracked"}, status=status.HTTP_400_BAD_REQUEST)
             
         elif request.method == 'DELETE':
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             tracking_id = request.data.get('id')
             if not tracking_id:
                 return Response({"detail": "Tracking record ID is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -330,6 +350,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         elif request.method == "POST":
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             data = request.data.copy()
             data['user'] = request.user.id
             serializer = WaterTrackingSerializer(data=data)
@@ -339,6 +361,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         elif request.method == 'DELETE':
+            if not request.user.profile.tracking_enabled:
+                return Response({'detail': "Tracking is disabled"}, status=status.HTTP_400_BAD_REQUEST)
             tracking_id = request.data.get('id')
             if not tracking_id:
                 return Response({'detail': "Tracking record ID is required."}, status=status.HTTP_404_NOT_FOUND)
@@ -358,25 +382,25 @@ class UserViewSet(viewsets.ModelViewSet):
         - date: specific date (YYYY-MM-DD)
         - start_date: start of date range (YYYY-MM-DD)
         - end_date: end of date range (YYYY-MM-DD)
-        - otherwise: the whole month
+        - otherwise: the whole month padded to the full weeks.
         """
         try:
             profile = request.user.profile
         except Profile.DoesNotExist:
             return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+
         plans = profile.fitness_plans.all()
-        
+
         # Get active fitness plan
         active_plan = profile.fitness_plans.filter(is_active=True).first()
         if not active_plan:
             return Response({"detail": "No active fitness plan found."}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # Parse date parameters
         date_param = request.query_params.get('date')
         start_date_param = request.query_params.get('start_date')
         end_date_param = request.query_params.get('end_date')
-        
+
         if date_param:
             # Single date
             try:
@@ -393,30 +417,35 @@ class UserViewSet(viewsets.ModelViewSet):
             except ValueError:
                 return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            # Default to the whole month
-            # dates = [date.today()]
-
+            # Default to the current month, padded to the start and end of the week.
             today = date.today()
-            dates_in_month = [date(today.year, today.month, day) for day in range(1, calendar.monthrange(today.year, today.month)[1] + 1)]
-            dates = dates_in_month
-        
+            first_day_of_month = today.replace(day=1)
+            last_day_of_month_numeric = calendar.monthrange(today.year, today.month)[1]
+            last_day_of_month = date(today.year, today.month, last_day_of_month_numeric)
+
+            # Calculate the start date (Monday of the week the month starts in)
+            start_date = first_day_of_month - timedelta(days=first_day_of_month.isoweekday() - 1)
+
+            # Calculate the end date (Sunday of the week the month ends in)
+            end_date = last_day_of_month + timedelta(days=7 - last_day_of_month.isoweekday())
+
+            dates = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+
         progress_data = []
 
         for a_plan in plans:
-        
             for target_date in dates:
-
                 if a_plan.start_date <= target_date <= a_plan.end_date:
-
                     # Calculate day of week (1=Monday, 7=Sunday)
                     day_of_week = target_date.isoweekday()
-                    
+
                     # Get planned workouts for this day
                     workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
                     workout_progress = 0
-                    if workout_day:                 
+                    total_exercises = 0
+                    if workout_day:
                         total_exercises = workout_day.exercises.count()
-                        if workout_day and not workout_day.is_rest_day:
+                        if not workout_day.is_rest_day:
                             if total_exercises > 0:
                                 completed_exercises = WorkoutTracking.objects.filter(
                                     user=request.user,
@@ -424,34 +453,35 @@ class UserViewSet(viewsets.ModelViewSet):
                                     exercise__workout_day=workout_day
                                 ).count()
                                 workout_progress = (completed_exercises / total_exercises) * 100
-                        elif workout_day and workout_day.is_rest_day:
+                        else:
                             workout_progress = 100  # Rest days are always "complete"
-                    
+
                     # Get planned meals for this day
                     nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
                     nutrition_progress = 0
+                    total_meals = 0
                     water_progress = 0
-                    
+                    total_water = 0
+
                     if nutrition_day:
                         total_meals = nutrition_day.meals.count()
-                        if nutrition_day:
-                            total_water = nutrition_day.target_water_litres
+                        total_water = nutrition_day.target_water_litres or 0
+                        if total_water > 0:
                             completed_water = WaterTracking.objects.filter(
                                 user=request.user,
                                 nutrition_day=nutrition_day,
                                 # date=target_date
-                                ).aggregate(total=Sum('litres_consumed'))['total'] or 0.0
+                            ).aggregate(total=Sum('litres_consumed'))['total'] or 0.0
                             water_progress = (completed_water / total_water) * 100
-                            if total_meals > 0:
-                                completed_meals = MealTracking.objects.filter(
-                                    user=request.user,
-                                    # date_completed=target_date,
-                                    meal__nutrition_day=nutrition_day
-                                ).count()
-                                nutrition_progress = (completed_meals / total_meals) * 100
 
+                        if total_meals > 0:
+                            completed_meals = MealTracking.objects.filter(
+                                user=request.user,
+                                # date_completed=target_date,
+                                meal__nutrition_day=nutrition_day
+                            ).count()
+                            nutrition_progress = (completed_meals / total_meals) * 100
 
-                    
                     progress_data.append({
                         'date': target_date.strftime('%Y-%m-%d'),
                         'day_of_week': day_of_week,
@@ -463,80 +493,10 @@ class UserViewSet(viewsets.ModelViewSet):
                         'total_water': round(total_water, 1),
                         'is_rest_day': workout_day.is_rest_day if workout_day else False
                     })
-        
+
         return Response({
             'progress': progress_data
         })
-
-    # @action(detail=False, methods=['get'], url_path='me/weekly-progress')
-    # def weekly_progress(self, request):
-    #     """
-    #     GET: Calculate weekly progress for workout and nutrition for the current week or a specified week.
-    #     Query params:
-    #     - week_start: start date of the week (YYYY-MM-DD), defaults to current week's Monday
-    #     """
-    #     try:
-    #         profile = request.user.profile
-    #     except Profile.DoesNotExist:
-    #         return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    #     plans = profile.fitness_plans.all()
-    #     active_plan = profile.fitness_plans.filter(is_active=True).first()
-    #     if not active_plan:
-    #         return Response({"detail": "No active fitness plan found."}, status=status.HTTP_404_NOT_FOUND)
-
-    #     week_start_param = request.query_params.get('week_start')
-    #     if week_start_param:
-    #         try:
-    #             week_start = datetime.strptime(week_start_param, '%Y-%m-%d').date()
-    #         except ValueError:
-    #             return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
-    #     else:
-    #         today = date.today()
-    #         week_start = today - timedelta(days=today.weekday())  # Monday
-
-    #     week_dates = [week_start + timedelta(days=i) for i in range(7)]
-
-    #     progress_data = []
-    #     for a_plan in plans:
-    #         for target_date in week_dates:
-    #             if a_plan.start_date <= target_date <= a_plan.end_date:
-    #                 day_of_week = target_date.isoweekday()
-    #                 workout_day = a_plan.workout_days.filter(day_of_week=day_of_week).first()
-    #                 workout_progress = 0
-    #                 if workout_day and not workout_day.is_rest_day:
-    #                     total_exercises = workout_day.exercises.count()
-    #                     if total_exercises > 0:
-    #                         completed_exercises = WorkoutTracking.objects.filter(
-    #                             user=request.user,
-    #                             # date_completed=target_date,
-    #                             exercise__workout_day=workout_day
-    #                         ).count()
-    #                     workout_progress = (completed_exercises / total_exercises) * 100
-    #                 elif workout_day and workout_day.is_rest_day:
-    #                     workout_progress = 100
-
-    #                 nutrition_day = a_plan.nutrition_days.filter(day_of_week=day_of_week).first()
-    #                 nutrition_progress = 0
-    #                 if nutrition_day:
-    #                     total_meals = nutrition_day.meals.count()
-    #                     if total_meals > 0:
-    #                         completed_meals = MealTracking.objects.filter(
-    #                             user=request.user,
-    #                             # date_completed=target_date,
-    #                             meal__nutrition_day=nutrition_day
-    #                         ).count()
-    #                     nutrition_progress = (completed_meals / total_meals) * 100
-
-    #                 progress_data.append({
-    #                     'date': target_date.strftime('%Y-%m-%d'),
-    #                     'day_of_week': day_of_week,
-    #                     'workout_progress': round(workout_progress, 1),
-    #                     'nutrition_progress': round(nutrition_progress, 1),
-    #                     'is_rest_day': workout_day.is_rest_day if workout_day else False
-    #                 })
-
-    #     return Response({'progress': progress_data})
 
 # a status view
 class StatusView(APIView):
@@ -552,3 +512,18 @@ class StatusView(APIView):
         """
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
+
+class GoogleLogin(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+    # callback_url = 'http://localhost:3000' # frontend url
+    client_class = OAuth2Client
+
+    def get_response(self):
+        
+        token = self.token
+        user = self.user
+
+        return Response({
+            'token': token.key if token else None,
+            'user': UserSerializer(user).data
+        })
